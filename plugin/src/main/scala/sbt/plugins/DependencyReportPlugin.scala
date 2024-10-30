@@ -35,26 +35,24 @@ object DependencyReportPlugin extends AutoPlugin {
         .map(_.stripPrefix("--format="))
         .getOrElse(defaultFormat)
 
-      val toFile = args.find(_.startsWith("--toFile="))
-        .map(path => new File(path.stripPrefix("--toFile=")))
-        .getOrElse(target.value)
+      val targetDir = target.value
 
       val graph = dependencyTreeModuleGraph0.value
 
-      def printAndPersistReport(report: String, fileExtension: String, toFile: File): File = {
+      def printAndPersistReport(report: String, fileExtension: String, targetDir: File): File = {
         streams.value.log.info(report)
-        persistReport(report, fileExtension, toFile)
+        persistReport(report, fileExtension, targetDir)
       }
 
       val serializedReport = format match {
         case "text" =>
           val report = generateTextReport(graph, format, asciiGraphWidth.value)
-          printAndPersistReport(report, "txt", toFile)
+          printAndPersistReport(report, "txt", targetDir)
         case "json" =>
           val report = generateJsonReport(graph)
-          printAndPersistReport(report, "json", toFile)
-        case "html" => generateAndPersistHtmlReport(graph, toFile)
-        case "graphml" => generateAndPersistGraphMLReport(graph, toFile)
+          printAndPersistReport(report, "json", targetDir)
+        case "html" => generateAndPersistHtmlReport(graph, targetDir)
+        case "graphml" => generateAndPersistGraphMLReport(graph, targetDir)
         case _      => sys.error(s"Unsupported format: $format")
       }
 
@@ -72,12 +70,12 @@ object DependencyReportPlugin extends AutoPlugin {
     }
   }
 
-  private def createReportFileIfNotSupplied(toFile: File, fileExtension: String): File = {
-    if (!toFile.isDirectory) toFile else new File(toFile, s"dependencies.$fileExtension")
+  private def createReportFile(targetDir: File, fileExtension: String): File = {
+    new File(targetDir, s"dependencies.$fileExtension")
   }
 
-  private def persistReport(report: String, fileExtension: String, toFile: File): File = {
-    val target = createReportFileIfNotSupplied(toFile, fileExtension)
+  private def persistReport(report: String, fileExtension: String, targetDir: File): File = {
+    val target = createReportFile(targetDir, fileExtension)
     IO.write(target, report, IO.utf8)
     target
   }
@@ -86,15 +84,15 @@ object DependencyReportPlugin extends AutoPlugin {
     TreeView.createJson(graph)
   }
 
-  private def generateAndPersistHtmlReport(graph: ModuleGraph, toFile: File): File = {
+  private def generateAndPersistHtmlReport(graph: ModuleGraph, targetDir: File): File = {
     val renderedTree = TreeView.createJson(graph)
-    val target = createReportFileIfNotSupplied(toFile, "html")
+    val target = createReportFile(targetDir, "html")
     TreeView.createLink(renderedTree, target)
     target
   }
 
-  private def generateAndPersistGraphMLReport(graph: ModuleGraph, toFile: File): File = {
-    val target = createReportFileIfNotSupplied(toFile, "xml")
+  private def generateAndPersistGraphMLReport(graph: ModuleGraph, targetDir: File): File = {
+    val target = createReportFile(targetDir, "xml")
     rendering.GraphML.saveAsGraphML(graph, target.getAbsolutePath)
     target
   }
