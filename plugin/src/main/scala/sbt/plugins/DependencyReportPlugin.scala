@@ -19,7 +19,13 @@ object DependencyReportPlugin extends AutoPlugin {
   override def trigger = allRequirements
   override def requires = MiniDependencyTreePlugin
 
-  override lazy val projectSettings = Seq(
+  override lazy val projectSettings: Seq[Setting[_]] = Seq(
+    // Define the dependencyReport task for each configuration using inConfig
+    inConfig(Compile)(baseDependencyReportSettings),
+    inConfig(Test)(baseDependencyReportSettings),
+  ).flatten
+
+  private lazy val baseDependencyReportSettings: Seq[Setting[_]] = Seq(
     dependencyReport := {
       val defaultFormat = "text"
 
@@ -33,13 +39,7 @@ object DependencyReportPlugin extends AutoPlugin {
         .map(path => new File(path.stripPrefix("--toFile=")))
         .getOrElse(target.value)
 
-      val graph = args.find(_.startsWith("--config="))
-        .map(_.stripPrefix("--config="))
-        .getOrElse("Compile") match {
-        case "Compile" => (Compile / dependencyTreeModuleGraph0).value
-        case "Test"    => (Test / dependencyTreeModuleGraph0).value
-        case other     => sys.error(s"Unsupported scope: $other")
-      }
+      val graph = dependencyTreeModuleGraph0.value
 
       def printAndPersistReport(report: String, fileExtension: String, toFile: File): File = {
         streams.value.log.info(report)
